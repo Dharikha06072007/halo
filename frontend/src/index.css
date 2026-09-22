@@ -1,0 +1,62 @@
+:root {
+  font-family: Inter, system-ui, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #e5eefb;
+  background: #08111f;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: linear-gradient(180deg, #07101d, #0f1e33); }
+button, input, textarea { font: inherit; }
+button { cursor: pointer; }
+
+.auth-shell, .dashboard-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.auth-card, .panel {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.42);
+}
+
+.auth-card { width: min(420px, 100%); }
+.auth-card h1 { margin-top: 0; }
+.switch-row { display: flex; gap: 12px; margin: 20px 0; }
+.switch-row button, .panel button, .topbar button {
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+}
+.switch-row button.active { background: #1d4ed8; }
+.auth-form { display: flex; flex-direction: column; gap: 14px; }
+.auth-form input, .panel textarea, .panel input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(148,163,184,0.4);
+  background: rgba(15,23,42,0.6); color: white;
+}
+
+.dashboard-shell { display: block; }
+.topbar {
+  max-width: 1000px; margin: 0 auto 24px; display: flex; align-items: center; justify-content: space-between;
+}
+.actions-grid {
+  max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px;
+}
+.panel { max-width: 1000px; margin: 0 auto 20px; }
+.panel textarea { min-height: 180px; resize: vertical; }
+.analysis-item { border-top: 1px solid rgba(148,163,184,0.2); padding-top: 12px; margin-top: 12px; }
+.success-box, .error-box { margin-top: 16px; padding: 12px 14px; border-radius: 10px; }
+.success-box { background: rgba(34,197,94,.12); color: #bbf7d0; }
+.error-box { background: rgba(239,68,68,.12); color: #fecaca; }
