@@ -39,9 +39,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="SkillSync AI", version="1.0.0", lifespan=lifespan)
 
+allowed_origins = {
+    settings.FRONTEND_URL,
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+}
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL],
+    allow_origins=sorted(allowed_origins),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

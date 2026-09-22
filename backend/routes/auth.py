@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr, Field
+from pymongo.errors import PyMongoError
 
 from backend.core.config import settings
 from backend.database.mongodb import db
@@ -16,6 +17,13 @@ from backend.utils.objectid import to_object_id
 router = APIRouter(prefix="/auth", tags=["auth"])
 security = HTTPBearer()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def database_unavailable(exc: PyMongoError) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Authentication service is temporarily unavailable because the database cannot be reached.",
+    )
 
 
 class RegisterRequest(BaseModel):
@@ -42,18 +50,24 @@ class UserOut(BaseModel):
 
 @router.post("/register")
 async def register(payload: RegisterRequest):
-    existing = db.users.find_one({"email": payload.email.lower()})
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
+    try:
+        existing = db.users.find_one({"email": payload.email.lower()})
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already registered")
 
-    user_doc = {
-        "name": payload.name.strip(),
-        "email": payload.email.lower(),
-        "password_hash": pwd_context.hash(payload.password),
-        "created_at": datetime.now(timezone.utc),
-    }
-    result = db.users.insert_one(user_doc)
-    created = db.users.find_one({"_id": result.inserted_id})
+        user_doc = {
+            "name": payload.name.strip(),
+            "email": payload.email.lower(),
+            "password_hash": pwd_context.hash(payload.password),
+            "created_at": datetime.now(timezone.utc),
+        }
+        result = db.users.insert_one(user_doc)
+        created = db.users.find_one({"_id": result.inserted_id})
+    except PyMongoError as exc:
+        raise database_unavailable(exc) from exc
+
+    if created is None:
+        raise HTTPException(status_code=500, detail="Could not create user")
     created.pop("password_hash", None)
     created["id"] = str(created["_id"])
     return {"id": created["id"], "name": created["name"], "email": created["email"]}
@@ -61,7 +75,11 @@ async def register(payload: RegisterRequest):
 
 @router.post("/login")
 async def login(payload: LoginRequest):
-    user = db.users.find_one({"email": payload.email.lower()})
+    try:
+        user = db.users.find_one({"email": payload.email.lower()})
+    except PyMongoError as exc:
+        raise database_unavailable(exc) from exc
+
     if not user or not pwd_context.verify(payload.password, user.get("password_hash", "")):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
@@ -93,7 +111,10 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except Exception as exc:
         raise HTTPException(status_code=401, detail="Invalid user token") from exc
 
-    user = db.users.find_one({"_id": obj_id})
+    try:
+        user = db.users.find_one({"_id": obj_id})
+    except PyMongoError as exc:
+        raise database_unavailable(exc) from exc
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
