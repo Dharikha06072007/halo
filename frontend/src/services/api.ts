@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+const API_BASE = import.meta.env.VITE_API_URL || ''
 
 export interface ApiError {
   message: string
@@ -89,6 +89,26 @@ export const jobService = {
 
 export const analysisService = {
   list: () => apiFetch<any[]>('/api/analysis', {}, true),
+  get: (id: string) => apiFetch<any>(`/api/analysis/${id}`, {}, true),
+  reprocess: (id: string) => apiFetch<any>(`/api/analysis/${id}/reprocess`, { method: 'POST' }, true),
+  learningPath: (id: string) => apiFetch<any>(`/api/analysis/${id}/learning-path`, {}, true),
+}
+
+export const matchService = {
+  create: (resume_id: string, job_description_id: string) =>
+    apiFetch<any>('/api/match', {
+      method: 'POST',
+      body: JSON.stringify({ resume_id, job_description_id }),
+    }, true),
+}
+
+export const interviewService = {
+  start: (analysis_id: string) => apiFetch<any>('/api/interview/start', {
+    method: 'POST',
+    body: JSON.stringify({ analysis_id }),
+  }, true),
+  state: (session_id: string) => apiFetch<any>(`/api/interview/${session_id}/state`, {}, true),
+  report: (session_id: string) => apiFetch<any>(`/api/interview/${session_id}/report`, {}, true),
 }
 
 export const healthService = {

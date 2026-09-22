@@ -21,7 +21,10 @@ async def analyze_job(payload: JobAnalyzeRequest, current_user: dict = Depends(g
     if not payload.job_description or not payload.job_description.strip():
         raise HTTPException(status_code=400, detail="Job description is required.")
 
-    parsed = extract_job_description(payload.job_description)
+    try:
+        parsed = extract_job_description(payload.job_description)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="Job description AI analysis is temporarily unavailable. Please try again shortly.") from exc
     document = {
         "user_id": current_user["_id"],
         "raw_text": payload.job_description,

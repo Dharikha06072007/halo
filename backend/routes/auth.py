@@ -6,9 +6,9 @@ from typing import Any
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr, Field
 from pymongo.errors import PyMongoError
+from pwdlib import PasswordHash
 
 from backend.core.config import settings
 from backend.database.mongodb import db
@@ -16,7 +16,7 @@ from backend.utils.objectid import to_object_id
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 security = HTTPBearer()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+password_hash = PasswordHash.recommended()
 
 
 def database_unavailable(exc: PyMongoError) -> HTTPException:
@@ -58,7 +58,7 @@ async def register(payload: RegisterRequest):
         user_doc = {
             "name": payload.name.strip(),
             "email": payload.email.lower(),
-            "password_hash": pwd_context.hash(payload.password),
+            "password_hash": password_hash.hash(payload.password),
             "created_at": datetime.now(timezone.utc),
         }
         result = db.users.insert_one(user_doc)
@@ -80,7 +80,7 @@ async def login(payload: LoginRequest):
     except PyMongoError as exc:
         raise database_unavailable(exc) from exc
 
-    if not user or not pwd_context.verify(payload.password, user.get("password_hash", "")):
+    if not user or not password_hash.verify(payload.password, user.get("password_hash", "")):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     token = create_access_token(str(user["_id"]))

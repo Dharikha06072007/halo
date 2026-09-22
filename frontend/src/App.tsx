@@ -1,208 +1,56 @@
 import { FormEvent, useEffect, useState } from 'react'
-import { analysisService, authService, healthService, jobService, resumeService, getAuthToken, setAuthToken } from './services/api'
+import {
+  Activity, ArrowRight, BarChart3, Check, ChevronDown, FileSearch, FileText,
+  GraduationCap, History, LayoutDashboard, LogOut, Menu, Play, Plus, ShieldCheck,
+  Sparkles, Target, User as UserIcon, Video, X, Zap,
+} from 'lucide-react'
+import {
+  analysisService, authService, getAuthToken, interviewService, jobService, matchService,
+  resumeService, setAuthToken,
+} from './services/api'
+
+type User = { id: string; name: string; email: string }
+type View = 'overview' | 'analyze' | 'analyses' | 'analysis-detail' | 'learning' | 'interview' | 'history' | 'profile'
+const navItems: { id: View; label: string; icon: typeof LayoutDashboard }[] = [
+  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'analyze', label: 'Analyze resume', icon: FileSearch },
+  { id: 'analyses', label: 'My analyses', icon: BarChart3 },
+  { id: 'interview', label: 'AI interview', icon: Video },
+  { id: 'history', label: 'Interview history', icon: History },
+  { id: 'learning', label: 'Learning path', icon: GraduationCap },
+  { id: 'profile', label: 'Profile', icon: UserIcon },
+]
+
+function initials(name: string) { return name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'S' }
+function formatDate(value?: string) { if (!value) return 'No date'; return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value)) }
 
 export default function App() {
-  const [isLogin, setIsLogin] = useState(true)
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [token, setToken] = useState<string | null>(getAuthToken())
-  const [user, setUser] = useState<{ id: string; name: string; email: string } | null>(null)
-  const [resumeFile, setResumeFile] = useState<File | null>(null)
-  const [jobText, setJobText] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
-  const [analyses, setAnalyses] = useState<any[]>([])
-
-  const loadUser = async () => {
-    if (!token) return
-    try {
-      const data = await authService.me()
-      setUser(data)
-    } catch (err: any) {
-      setError(err.message || 'Session invalid')
-      setToken(null)
-      setAuthToken(null)
-    }
-  }
-
-  const loadAnalyses = async () => {
-    if (!token) return
-    try {
-      const data = await analysisService.list()
-      setAnalyses(data)
-    } catch (err: any) {
-      setAnalyses([])
-      setError(err.message || 'Could not load analyses')
-    }
-  }
-
-  useEffect(() => {
-    if (token) {
-      loadUser()
-      loadAnalyses()
-    }
-  }, [token])
-
-  const handleAuth = async (event: FormEvent) => {
-    event.preventDefault()
-    setLoading(true)
-    setError('')
-    setMessage('')
-
-    try {
-      if (isLogin) {
-        const res = await authService.login(email, password)
-        setAuthToken(res.access_token)
-        setToken(res.access_token)
-        setUser(res.user)
-        setMessage('Logged in successfully.')
-      } else {
-        await authService.register(name, email, password)
-        setMessage('Registration successful. Please log in.')
-        setIsLogin(true)
-      }
-    } catch (err: any) {
-      setError(err.message || 'Authentication failed')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleResumeUpload = async () => {
-    if (!resumeFile) {
-      setError('Choose a PDF or DOCX resume first.')
-      return
-    }
-    setLoading(true)
-    setError('')
-    setMessage('')
-    try {
-      await resumeService.upload(resumeFile)
-      setMessage('Resume uploaded and analyzed.')
-    } catch (err: any) {
-      setError(err.message || 'Resume upload failed')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleAnalyzeJob = async () => {
-    if (!jobText.trim()) {
-      setError('Paste a job description first.')
-      return
-    }
-    setLoading(true)
-    setError('')
-    setMessage('')
-    try {
-      const res = await jobService.analyze(jobText)
-      setMessage(`Job analyzed: ${res.job_title || 'Role detected'}`)
-    } catch (err: any) {
-      setError(err.message || 'Job analysis failed')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const logout = () => {
-    setAuthToken(null)
-    setToken(null)
-    setUser(null)
-    setAnalyses([])
-  }
-
-  const backendStatus = async () => {
-    try {
-      const status = await healthService.check()
-      setMessage(`Backend: ${status.status} | DB: ${status.database}`)
-    } catch (err: any) {
-      setError(err.message || 'Health check failed')
-    }
-  }
-
-  if (!token) {
-    return (
-      <div className="auth-shell">
-        <div className="auth-card">
-          <h1>SkillSync AI</h1>
-          <div className="switch-row">
-            <button className={isLogin ? 'active' : ''} onClick={() => setIsLogin(true)}>Login</button>
-            <button className={!isLogin ? 'active' : ''} onClick={() => setIsLogin(false)}>Register</button>
-          </div>
-
-          <form onSubmit={handleAuth} className="auth-form">
-            {!isLogin && (
-              <input
-                placeholder="Full name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            )}
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <button type="submit" disabled={loading}>{loading ? 'Please wait...' : isLogin ? 'Login' : 'Register'}</button>
-          </form>
-
-          {message && <div className="success-box">{message}</div>}
-          {error && <div className="error-box">{error}</div>}
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="dashboard-shell">
-      <header className="topbar">
-        <div>
-          <h2>SkillSync AI</h2>
-          <small>{user?.email}</small>
-        </div>
-        <button onClick={logout}>Logout</button>
-      </header>
-
-      <div className="actions-grid">
-        <div className="panel">
-          <h3>Resume Upload</h3>
-          <input type="file" accept=".pdf,.docx" onChange={(e) => setResumeFile(e.target.files?.[0] || null)} />
-          <button onClick={handleResumeUpload} disabled={loading}>Upload Resume</button>
-        </div>
-
-        <div className="panel">
-          <h3>Job Description</h3>
-          <textarea value={jobText} onChange={(e) => setJobText(e.target.value)} placeholder="Paste the target job description..." />
-          <button onClick={handleAnalyzeJob} disabled={loading}>Analyze Job</button>
-        </div>
-      </div>
-
-      <div className="panel">
-        <h3>System status</h3>
-        <button onClick={backendStatus}>Check backend health</button>
-      </div>
-
-      <div className="panel">
-        <h3>Analyses</h3>
-        {analyses.length === 0 ? <p>No analyses yet.</p> : analyses.map((item) => (
-          <div key={item.id} className="analysis-item">
-            <strong>{item.overall_match_score ?? 0}% match</strong>
-            <div>{item.matched_skills?.join(', ') || 'No matched skills yet.'}</div>
-          </div>
-        ))}
-      </div>
-
-      {message && <div className="success-box">{message}</div>}
-      {error && <div className="error-box">{error}</div>}
-    </div>
-  )
+  const [isLogin, setIsLogin] = useState(true); const [name, setName] = useState(''); const [email, setEmail] = useState(''); const [password, setPassword] = useState('')
+  const [token, setToken] = useState<string | null>(getAuthToken()); const [user, setUser] = useState<User | null>(null); const [view, setView] = useState<View>('overview')
+  const [mobileNav, setMobileNav] = useState(false); const [analyses, setAnalyses] = useState<any[]>([]); const [analysisId, setAnalysisId] = useState(''); const [message, setMessage] = useState(''); const [error, setError] = useState(''); const [loading, setLoading] = useState(false)
+  const loadAppData = async () => { if (!token) return; try { const [profile, rows] = await Promise.all([authService.me(), analysisService.list()]); setUser(profile); setAnalyses(rows); setError('') } catch (err: any) { setError(err.message || 'We could not load your workspace.'); if (err.status === 401) { setAuthToken(null); setToken(null) } } }
+  useEffect(() => { if (token) loadAppData() }, [token])
+  const handleAuth = async (event: FormEvent) => { event.preventDefault(); setLoading(true); setError(''); setMessage(''); try { if (isLogin) { const result = await authService.login(email, password); setAuthToken(result.access_token); setToken(result.access_token); setUser(result.user); setMessage('Welcome back.') } else { await authService.register(name, email, password); setIsLogin(true); setMessage('Account created. Sign in to continue.') } } catch (err: any) { setError(err.message || 'Authentication failed') } finally { setLoading(false) } }
+  const logout = () => { setAuthToken(null); setToken(null); setUser(null); setAnalyses([]) }
+  if (!token) return <AuthScreen {...{ isLogin, setIsLogin, name, setName, email, setEmail, password, setPassword, loading, error, message, handleAuth }} />
+  return <div className="app-shell"><Sidebar view={view} setView={(next: View) => { setView(next); setMobileNav(false) }} mobileNav={mobileNav} closeMobile={() => setMobileNav(false)} logout={logout} /><div className="main-column"><header className="navbar"><button className="icon-button mobile-menu" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu size={20} /></button><div className="crumb"><span>Workspace</span><ChevronDown size={15} /><strong>{navItems.find((item) => item.id === view)?.label || 'Analysis details'}</strong></div><div className="nav-user"><div className="avatar small">{initials(user?.name || '')}</div><span>{user?.name}</span><ChevronDown size={15} /></div></header><main className="content">{error && <InlineNotice tone="error" text={error} onClose={() => setError('')} />}{message && <InlineNotice tone="success" text={message} onClose={() => setMessage('')} />}{view === 'overview' && <Overview user={user} analyses={analyses} setView={setView} />}{view === 'analyze' && <Analyze onComplete={async () => { await loadAppData(); setView('analyses') }} setMessage={setMessage} setError={setError} />}{view === 'analyses' && <Analyses analyses={analyses} setView={setView} setAnalysisId={setAnalysisId} />}{view === 'analysis-detail' && <AnalysisDetails analysisId={analysisId} setView={setView} setError={setError} />}{view === 'learning' && <Learning analyses={analyses} setError={setError} />}{view === 'interview' && <InterviewLanding analyses={analyses} analysisId={analysisId} setError={setError} setMessage={setMessage} />}{view === 'history' && <EmptyPage icon={History} title="Interview history" text="Your completed interviews will appear here." />}{view === 'profile' && <Profile user={user} analyses={analyses} logout={logout} />}</main></div></div>
 }
+
+function AuthScreen(props: any) { return <div className="auth-page"><div className="auth-visual"><div className="brand-mark"><span>✦</span> SkillSync <b>AI</b></div><div className="auth-pitch"><p className="eyebrow">AI CAREER INTELLIGENCE</p><h1>Make your next move<br /><em>your strongest one.</em></h1><p>Turn your resume into a clear path forward with intelligent job matching, focused learning, and realistic interview practice.</p><div className="signal-row"><span><ShieldCheck size={16} /> Private by design</span><span><Zap size={16} /> Built for momentum</span></div></div></div><div className="auth-panel"><div className="mobile-brand"><div className="brand-mark"><span>✦</span> SkillSync <b>AI</b></div></div><div className="auth-heading"><p className="eyebrow">{props.isLogin ? 'WELCOME BACK' : 'START YOUR JOURNEY'}</p><h2>{props.isLogin ? 'Ready when you are.' : 'Create your workspace.'}</h2><p>{props.isLogin ? 'Sign in to pick up where you left off.' : 'Build a sharper career story, one step at a time.'}</p></div><div className="auth-tabs"><button className={props.isLogin ? 'selected' : ''} onClick={() => props.setIsLogin(true)}>Sign in</button><button className={!props.isLogin ? 'selected' : ''} onClick={() => props.setIsLogin(false)}>Create account</button></div><form className="auth-form" onSubmit={props.handleAuth}>{!props.isLogin && <label>Full name<input value={props.name} onChange={(e: any) => props.setName(e.target.value)} placeholder="Your name" required /></label>}<label>Email address<input type="email" value={props.email} onChange={(e: any) => props.setEmail(e.target.value)} placeholder="you@example.com" required /></label><label>Password<input type="password" value={props.password} onChange={(e: any) => props.setPassword(e.target.value)} placeholder="At least 6 characters" minLength={6} required /></label><button className="primary-button wide" disabled={props.loading}>{props.loading ? 'Working...' : props.isLogin ? 'Sign in' : 'Create account'}<ArrowRight size={17} /></button></form>{props.message && <InlineNotice tone="success" text={props.message} />} {props.error && <InlineNotice tone="error" text={props.error} />}</div></div> }
+function Sidebar({ view, setView, mobileNav, closeMobile, logout }: any) { return <aside className={`sidebar ${mobileNav ? 'open' : ''}`}><div className="sidebar-top"><div className="brand-mark"><span>✦</span> SkillSync <b>AI</b></div><button className="icon-button close-nav" onClick={closeMobile}><X size={19} /></button></div><div className="workspace-switch"><div className="workspace-icon"><Sparkles size={17} /></div><div><strong>Personal workspace</strong><small>Career command center</small></div><ChevronDown size={15} /></div><nav>{navItems.map(({ id, label, icon: Icon }) => <button key={id} className={view === id ? 'active' : ''} onClick={() => setView(id)}><Icon size={18} /><span>{label}</span>{id === 'overview' && <span className="nav-dot" />}</button>)}</nav><div className="sidebar-bottom"><div className="upgrade-card"><Sparkles size={17} /><strong>Make your next move count.</strong><span>Keep building your edge with SkillSync.</span></div><button className="logout-button" onClick={logout}><LogOut size={17} /> Sign out</button></div></aside> }
+function Overview({ user, analyses, setView }: any) { const latest = analyses[0]; const firstName = user?.name?.split(' ')[0] || 'there'; return <><PageHeader eyebrow="YOUR COMMAND CENTER" title={`Good to see you, ${firstName}.`} subtitle="Turn your experience into your next opportunity." action={<button className="primary-button" onClick={() => setView('analyze')}><Plus size={18} /> Analyze new job</button>} /><div className="journey-banner"><div><span className="eyebrow light">YOUR NEXT MOVE</span><h3>Match. Improve. Interview. Get ready.</h3><p>Follow a focused path from resume signal to confident conversation.</p></div><div className="journey-steps">{['Resume', 'Target role', 'Match', 'Interview'].map((step, index) => <div className="journey-step" key={step}><span>{index + 1}</span><small>{step}</small></div>)}</div></div><section className="stats-grid"><Stat icon={BarChart3} label="Total analyses" value={analyses.length ? analyses.length : '—'} detail={analyses.length ? 'Across your target roles' : 'Your first one starts here'} /><Stat icon={Target} label="Latest match" value={latest ? `${Math.round(latest.overall_match_score)}%` : '—'} detail={latest ? 'Most recent job fit' : 'No analysis yet'} /><Stat icon={Video} label="Completed interviews" value="—" detail="No interview data yet" /><Stat icon={Activity} label="Interview average" value="—" detail="No interview data yet" /></section><div className="section-heading"><div><span className="eyebrow">SIGNAL, NOT NOISE</span><h2>Your latest analysis</h2></div><button className="text-button" onClick={() => setView('analyses')}>View all <ArrowRight size={16} /></button></div>{latest ? <LatestAnalysis item={latest} setView={setView} /> : <EmptyCard icon={FileSearch} title="Your SkillSync journey starts here." text="Upload your resume and add a target role to see where your experience is strongest." action="Analyze your first job" onClick={() => setView('analyze')} />}</> }
+function Stat({ icon: Icon, label, value, detail }: any) { return <div className="stat-card"><div className="stat-icon"><Icon size={19} /></div><div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div></div> }
+function LatestAnalysis({ item, setView }: any) { return <div className="latest-card"><div className="score-ring" style={{ '--score': `${item.overall_match_score || 0}%` } as React.CSSProperties}><div><strong>{Math.round(item.overall_match_score || 0)}%</strong><small>match score</small></div></div><div className="latest-copy"><span className="eyebrow">LATEST JOB MATCH</span><h3>Role analysis</h3><p>Created {formatDate(item.created_at)} · A clear view of your strongest signals and next gaps.</p><div className="skill-summary"><span className="matched"><Check size={14} /> {item.matched_skills?.length || 0} matched</span><span className="partial">{item.partial_skills?.length || 0} partial</span><span className="missing">{item.not_demonstrated_skills?.length || 0} to prepare</span></div></div><button className="secondary-button" onClick={() => setView('analyses')}>View analysis <ArrowRight size={16} /></button></div> }
+function Analyze({ onComplete, setMessage, setError }: any) { const [file, setFile] = useState<File | null>(null); const [resumeId, setResumeId] = useState(''); const [jobText, setJobText] = useState(''); const [jobId, setJobId] = useState(''); const [busy, setBusy] = useState(false); const [stage, setStage] = useState(''); const run = async () => { if (!file || !jobText.trim()) { setError('Add a resume and target job description to continue.'); return } setBusy(true); setError(''); try { setStage('Reading your resume...'); const resume = resumeId ? { id: resumeId } : await resumeService.upload(file); setResumeId(resume.id); setStage('Understanding the target role...'); const job = jobId ? { id: jobId } : await jobService.analyze(jobText); setJobId(job.id); setStage('Comparing skills and evidence...'); await matchService.create(resume.id, job.id); setStage(''); setMessage('Your job fit analysis is ready.'); await onComplete() } catch (err: any) { setStage(''); setError(err.message || 'We could not complete the analysis.') } finally { setBusy(false) } }; return <><PageHeader eyebrow="ANALYZE YOUR FIT" title="See where you stand." subtitle="Upload your resume and compare it against the role you are targeting." /><div className="step-layout"><div className="step-card"><div className="step-number">01</div><div className="step-content"><span className="eyebrow">RESUME</span><h3>Bring your experience in.</h3><p>PDF or DOCX, up to 10MB. Your resume stays connected to your private workspace.</p><label className={`upload-zone ${file ? 'has-file' : ''}`}><input type="file" accept=".pdf,.docx" onChange={(e) => { setFile(e.target.files?.[0] || null); setResumeId('') }} />{file ? <><div className="file-icon"><FileText size={22} /></div><div><strong>{file.name}</strong><small>{(file.size / 1024 / 1024).toFixed(2)} MB · Ready to analyze</small></div><Check className="file-check" size={19} /></> : <><div className="upload-icon"><Plus size={22} /></div><div><strong>Drop your resume here</strong><small>or browse from your device</small></div><ArrowRight size={18} /></>}</label></div></div><div className="step-card"><div className="step-number">02</div><div className="step-content"><span className="eyebrow">TARGET ROLE</span><h3>Choose where you are going.</h3><p>Paste the job description so the match is grounded in what the role actually asks for.</p><textarea className="job-input" value={jobText} onChange={(e) => { setJobText(e.target.value); setJobId('') }} placeholder="Paste the job description here..." /><div className="input-meta"><span>{jobText.length ? `${jobText.length} characters` : 'Role description required'}</span><FileSearch size={16} /></div></div></div><div className="analyze-footer"><div>{stage ? <><span className="spinner" />{stage}</> : <><ShieldCheck size={17} /> Powered by your resume and target role</>}</div><button className="primary-button" onClick={run} disabled={busy}>{busy ? 'Analyzing...' : 'Analyze match'}<ArrowRight size={17} /></button></div></div></> }
+function Analyses({ analyses, setView, setAnalysisId }: any) { return <><PageHeader eyebrow="YOUR SIGNALS" title="My analyses" subtitle="Every match, gap, and opportunity in one place." action={<button className="primary-button" onClick={() => setView('analyze')}><Plus size={18} /> New analysis</button>} />{analyses.length ? <div className="analysis-list">{analyses.map((item: any) => <div className="analysis-row" key={item.id}><div className="row-icon"><BarChart3 size={20} /></div><div className="row-main"><span className="eyebrow">{item.status || 'COMPLETED'}</span><h3>{item.job_title || 'Target role'}</h3><small>{item.resume_file_name || 'Resume'} · {formatDate(item.created_at)}</small></div><div className="row-skills"><span className="matched">{item.matched_skills?.length || 0} matched</span><span className="partial">{item.partial_skills?.length || 0} partial</span><span className="missing">{item.not_demonstrated_skills?.length || 0} to prepare</span></div><div className="row-score"><strong>{item.overall_match_score !== undefined && item.overall_match_score !== null ? `${Math.round(item.overall_match_score)}%` : '—'}</strong><span>match</span></div><button className="icon-button" onClick={() => { setAnalysisId(item.id); setView('analysis-detail') }} aria-label="Open analysis"><ArrowRight size={18} /></button></div>)}</div> : <EmptyCard icon={BarChart3} title="No analyses yet." text="Your analysis history will appear here once you compare a resume with a target role." action="Analyze a job" onClick={() => setView('analyze')} />}</> }
+function AnalysisDetails({ analysisId, setView, setError }: any) { const [analysis, setAnalysis] = useState<any>(null); const [open, setOpen] = useState<string | null>(null); useEffect(() => { if (!analysisId) return; analysisService.get(analysisId).then(setAnalysis).catch((err: any) => setError(err.message || 'Could not load this analysis.')) }, [analysisId]); if (!analysis) return <EmptyCard icon={BarChart3} title="Loading analysis..." text="Retrieving the saved resume and job comparison." />; const evidence = analysis.evidence_map || analysis.evidence || []; const group = (status: string) => evidence.filter((item: any) => item.status === status); return <><button className="back-link" onClick={() => setView('analyses')}><ArrowRight size={15} /> Back to my analyses</button><div className="detail-hero"><div><span className="eyebrow">{analysis.status || 'COMPLETED'} ANALYSIS</span><h1>{analysis.job_title || 'Target role'}</h1><p>{analysis.resume_file_name || 'Resume'} · {formatDate(analysis.created_at)}</p></div><div className="detail-score"><strong>{analysis.overall_match_score !== undefined ? `${Math.round(analysis.overall_match_score)}%` : '—'}</strong><span>overall match</span></div></div><div className="detail-counts"><div><strong>{group('MATCHED').length}</strong><span>Matched</span></div><div><strong>{group('PARTIAL').length}</strong><span>Partial</span></div><div><strong>{group('NOT_DEMONSTRATED').length}</strong><span>Not demonstrated</span></div></div><DetailSection title="Match summary"><p className="detail-copy">Your score reflects the saved semantic evidence comparison between this job description and the uploaded resume. Strong matches count fully; partial evidence contributes proportionally.</p></DetailSection>{[['WHAT MATCHED', 'MATCHED', 'matched'], ['PARTIALLY DEMONSTRATED', 'PARTIAL', 'partial'], ['NOT CLEARLY DEMONSTRATED', 'NOT_DEMONSTRATED', 'missing']].map(([title, status, className]) => <DetailSection key={status} title={title}><div className="evidence-list">{group(status).length ? group(status).map((item: any) => <EvidenceCard key={item.skill} item={item} open={open === item.skill} onClick={() => setOpen(open === item.skill ? null : item.skill)} className={className} />) : <p className="detail-empty">No saved requirements in this category.</p>}</div></DetailSection>)}<DetailSection title="How to improve your match"><div className="recommendation-list">{(analysis.improvement_recommendations || []).length ? analysis.improvement_recommendations.map((item: any) => <EvidenceCard key={item.skill} item={item} open={false} onClick={() => undefined} className="partial" recommendation />) : <p className="detail-empty">No improvement recommendations were saved for this analysis.</p>}</div></DetailSection><DetailSection title="Resume improvements"><ul className="improvement-list">{(analysis.resume_improvements || []).map((item: string) => <li key={item}>{item}</li>)}</ul></DetailSection><div className="interview-cta"><div><span className="eyebrow light">READY TO PRACTICE?</span><h2>Take this exact role into an AI interview.</h2><p>Your session will be started from this saved analysis.</p></div><button className="primary-button" onClick={() => setView('interview')}><Play size={16} /> Start personalized interview</button></div></> }
+function DetailSection({ title, children }: any) { return <section className="detail-section-card"><div className="section-heading"><h2>{title}</h2></div>{children}</section> }
+function EvidenceCard({ item, open, onClick, className, recommendation }: any) { return <div className={`evidence-card ${className}`}><button className="evidence-head" onClick={onClick}><div><strong>{item.skill || 'Recommendation'}</strong><span>{recommendation ? 'IMPROVEMENT' : item.status}</span></div><div className="evidence-meta">{item.semantic_similarity !== undefined && `${Math.round(item.semantic_similarity * 100)}%`}<ChevronDown size={17} className={open ? 'rotated' : ''} /></div></button>{open && <div className="evidence-body"><InfoBlock title="JD requires" value={item.jd_requirement} /><InfoBlock title="Your resume shows" value={item.resume_evidence} /><InfoBlock title={item.status === 'PARTIAL' ? "What's missing" : 'Why this status'} value={item.missing_evidence || item.explanation} />{item.improvement && <InfoBlock title="How can I strengthen this?" value={item.improvement} />}</div>}</div> }
+function InfoBlock({ title, value }: any) { return <div className="info-block"><span>{title}</span><p>{value || 'No saved evidence for this field.'}</p></div> }
+function Learning({ analyses, setError }: any) { const [path, setPath] = useState<any>(null); const [busy, setBusy] = useState(false); const latest = analyses[0]; const load = async () => { if (!latest) return; setBusy(true); try { setPath(await analysisService.learningPath(latest.id)) } catch (err: any) { setError(err.message || 'Learning path unavailable.') } finally { setBusy(false) } }; useEffect(() => { setPath(null) }, [latest?.id]); return <><PageHeader eyebrow="YOUR PREPARATION PLAN" title="Learning path" subtitle="Focus on the skills that matter most for your target role." />{!latest ? <EmptyCard icon={GraduationCap} title="Generate a job analysis first." text="Your personalized learning path is built from the gaps in your latest match." /> : !path ? <EmptyCard icon={GraduationCap} title="Turn gaps into a plan." text="Generate a focused learning path from your latest job match." action={busy ? 'Building your path...' : 'Generate learning path'} onClick={load} /> : <div className="roadmap">{(path.skill_priorities || []).map((item: any, index: number) => { const skill = typeof item === 'string' ? item : item.skill || item.name || 'Skill focus'; return <div className="roadmap-item" key={index}><div className="roadmap-marker">{String(index + 1).padStart(2, '0')}</div><div className="roadmap-body"><span className="priority-badge">{item.priority || 'FOCUS'}</span><h3>{skill}</h3><p>{item.why_learn || item.why_it_matters || item.reason || 'A recommended focus from your latest analysis.'}</p>{item.steps && <ul>{item.steps.map((step: string) => <li key={step}>{step}</li>)}</ul>}</div></div> })}</div>}</> }
+function InterviewLanding({ analyses, analysisId, setError, setMessage }: any) { const [starting, setStarting] = useState(false); const latest = analyses.find((item: any) => item.id === analysisId) || analyses[0]; const start = async () => { if (!latest) return; setStarting(true); try { const result = await interviewService.start(latest.id); setMessage(`Interview session is ready with ${result.topics?.length || 0} personalized topics.`) } catch (err: any) { setError(err.message || 'Interview could not start.') } finally { setStarting(false) } }; return <><PageHeader eyebrow="AI INTERVIEW PRACTICE" title="Practice the conversation." subtitle="Your interviewer uses your resume, target role, and skill gaps to make every question relevant." />{!latest ? <EmptyCard icon={Video} title="An analysis unlocks interview practice." text="Complete a job match first so your interview can be personalized to the role." /> : <div className="interview-launch"><div className="interview-orb"><Video size={32} /></div><span className="eyebrow light">READY WHEN YOU ARE</span><h2>Step into a sharper interview.</h2><p>Your latest analysis is ready to become a focused practice session.</p><div className="checklist"><span><Check size={15} /> Resume analysis</span><span><Check size={15} /> Target role</span><span><Check size={15} /> Match signals</span></div><button className="primary-button" onClick={start} disabled={starting}>{starting ? 'Preparing session...' : 'Start AI interview'}<Play size={16} /></button></div>}</> }
+function Profile({ user, analyses, logout }: any) { return <><PageHeader eyebrow="YOUR ACCOUNT" title="Profile" subtitle="Your SkillSync identity and career activity." /><div className="profile-grid"><div className="profile-card"><div className="avatar large">{initials(user?.name || '')}</div><h2>{user?.name}</h2><p>{user?.email}</p><span className="verified"><ShieldCheck size={15} /> Account connected</span></div><div className="profile-details"><div className="detail-section"><span className="eyebrow">PERSONAL INFORMATION</span><div className="detail-row"><span>Name</span><strong>{user?.name || '—'}</strong></div><div className="detail-row"><span>Email</span><strong>{user?.email || '—'}</strong></div></div><div className="detail-section"><span className="eyebrow">CAREER ACTIVITY</span><div className="activity-grid"><div><strong>{analyses.length || '—'}</strong><span>Analyses</span></div><div><strong>—</strong><span>Interviews</span></div><div><strong>—</strong><span>Avg. score</span></div></div></div><button className="secondary-button" onClick={logout}><LogOut size={16} /> Sign out</button></div></div></> }
+function PageHeader({ eyebrow, title, subtitle, action }: any) { return <div className="page-header"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{subtitle}</p></div>{action}</div> }
+function EmptyCard({ icon: Icon, title, text, action, onClick }: any) { return <div className="empty-card"><div className="empty-icon"><Icon size={24} /></div><h3>{title}</h3><p>{text}</p>{action && <button className="secondary-button" onClick={onClick}>{action}<ArrowRight size={16} /></button>}</div> }
+function EmptyPage({ icon, title, text }: any) { return <><PageHeader eyebrow="YOUR PRACTICE" title={title} subtitle="Keep your progress in view as your confidence grows." /><EmptyCard icon={icon} title={text} text="There is nothing to show here yet. Complete an AI interview to start building your history." /></> }
+function InlineNotice({ tone, text, onClose }: any) { return <div className={`inline-notice ${tone}`}><span>{text}</span>{onClose && <button onClick={onClose}><X size={15} /></button>}</div> }

@@ -40,7 +40,10 @@ async def upload_resume(file: UploadFile = File(...), current_user: dict = Depen
     if not text.strip():
         raise HTTPException(status_code=400, detail="No readable text found in the uploaded file.")
 
-    parsed = extract_resume(text)
+    try:
+        parsed = extract_resume(text)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="Resume AI analysis is temporarily unavailable. Please try again shortly.") from exc
     safe_name = f"resume_{current_user['_id']}_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{file.filename}"
     save_path = UPLOAD_DIR / safe_name.replace("/", "_").replace("\\", "_")
     save_path.write_bytes(content)
