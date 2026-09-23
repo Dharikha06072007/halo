@@ -23,6 +23,8 @@ class InterviewAnswerRequest(BaseModel):
     question_id: str
     answer_submission_id: str
     transcript: str
+class InterviewEndRequest(BaseModel):
+    session_id: str
 
 
 def object_id(value: str, label: str) -> ObjectId:
@@ -37,6 +39,10 @@ async def start_interview(payload: InterviewStartRequest, current_user: dict = D
     analysis = db.resume_analyses.find_one({"_id": object_id(payload.analysis_id, "analysis id"), "user_id": current_user["_id"]})
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
+    if analysis.get("status") == "PROCESSING":
+        raise HTTPException(status_code=409, detail="Analysis is still being prepared.")
+    if analysis.get("status") == "FAILED":
+        raise HTTPException(status_code=409, detail="Analysis must be completed before starting an interview.")
     if analysis.get("status") != "COMPLETED" or not analysis.get("evidence_map", analysis.get("evidence")):
         raise HTTPException(status_code=409, detail="Analysis must be completed before starting an interview.")
     resume = db.resumes.find_one({"_id": analysis.get("resume_id"), "user_id": current_user["_id"]})
@@ -159,8 +165,8 @@ async def submit_answer(payload: InterviewAnswerRequest, current_user: dict = De
 
 
 @router.post("/end")
-async def end_interview(session_id: str, current_user: dict = Depends(get_current_user)):
-    session = db.interview_sessions.find_one({"_id": object_id(session_id, "session id"), "user_id": current_user["_id"]})
+async def end_interview(payload: InterviewEndRequest, current_user: dict = Depends(get_current_user)):
+    session = db.interview_sessions.find_one({"_id": object_id(payload.session_id, "session id"), "user_id": current_user["_id"]})
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     db.interview_sessions.update_one({"_id": session["_id"]}, {"$set": {"status": "COMPLETED", "completed_at": datetime.now(timezone.utc)}})

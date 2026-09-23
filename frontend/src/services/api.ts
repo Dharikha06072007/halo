@@ -107,6 +107,14 @@ export const interviewService = {
     method: 'POST',
     body: JSON.stringify({ analysis_id }),
   }, true),
+  answer: (payload: { session_id: string; question_id: string; answer_submission_id: string; transcript: string }) => apiFetch<any>('/api/interview/answer', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }, true),
+  end: (session_id: string) => apiFetch<any>('/api/interview/end', {
+    method: 'POST',
+    body: JSON.stringify({ session_id }),
+  }, true),
   state: (session_id: string) => apiFetch<any>(`/api/interview/${session_id}/state`, {}, true),
   report: (session_id: string) => apiFetch<any>(`/api/interview/${session_id}/report`, {}, true),
 }
