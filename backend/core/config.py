@@ -10,7 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     GEMINI_API_KEY: str = Field(default="")
-    GEMINI_MODEL: str = "gemini-3.6-flash"
+    GEMINI_MODEL: str = "gemini-2.5-flash"
     HF_TOKEN: str = Field(default="")
     HF_MODEL: str = "BAAI/bge-base-en-v1.5"
     MONGODB_URI: str = Field(default="")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from typing import Any
 
 from huggingface_hub import InferenceClient
@@ -8,7 +9,8 @@ from huggingface_hub import InferenceClient
 from backend.core.config import settings
 
 
-client = InferenceClient(model=settings.HF_MODEL, token=settings.HF_TOKEN)
+client = InferenceClient(model=settings.HF_MODEL, token=settings.HF_TOKEN, timeout=1.5)
+_executor = ThreadPoolExecutor(max_workers=2)
 
 
 def get_embedding(text: str) -> list[float]:
@@ -42,6 +44,6 @@ def _cosine_similarity(vec_a: list[float], vec_b: list[float]) -> float:
 
 
 def calculate_similarity(text_a: str, text_b: str) -> float:
-    vec_a = get_embedding(text_a)
-    vec_b = get_embedding(text_b)
+    vec_a = _executor.submit(get_embedding, text_a).result(timeout=1.5)
+    vec_b = _executor.submit(get_embedding, text_b).result(timeout=1.5)
     return max(0.0, min(1.0, (_cosine_similarity(vec_a, vec_b) + 1.0) / 2.0))

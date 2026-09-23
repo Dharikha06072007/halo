@@ -33,7 +33,18 @@ async function apiFetch<T>(path: string, options: RequestInit = {}, requireAuth 
     headers.delete('Content-Type')
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}${path}`, { ...options, headers })
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      throw { message: 'The request took too long. Please retry.', status: 504 } as ApiError
+    }
+    throw {
+      message: 'Unable to reach the SkillSync server. Start the FastAPI backend and check its database connection.',
+      status: 503,
+    } as ApiError
+  }
 
   if (!res.ok) {
     const text = await res.text()

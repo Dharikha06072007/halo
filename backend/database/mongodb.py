@@ -28,6 +28,7 @@ def ensure_indexes() -> None:
         "interview_questions": ["user_id", "session_id", "created_at"],
         "interview_answers": ["user_id", "session_id", "question_id", "created_at"],
         "interview_feedback": ["user_id", "session_id", "created_at"],
+        "interview_integrity_events": ["user_id", "session_id", "timestamp"],
     }.items():
         collection = db[collection_name]
         for field in field_names:

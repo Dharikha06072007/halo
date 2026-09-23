@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 import google.generativeai as genai
@@ -10,6 +11,7 @@ from backend.core.config import settings
 
 
 genai.configure(api_key=settings.GEMINI_API_KEY)
+logger = logging.getLogger("skillsync.gemini")
 
 
 class ResumeExtraction(BaseModel):
@@ -74,7 +76,11 @@ def _model():
 
 def _safe_call(prompt: str, schema: type[BaseModel] | None = None, temperature: float = 0.2):
     try:
-        result = _model().generate_content(prompt, generation_config={"temperature": temperature, "response_mime_type": "application/json"})
+        result = _model().generate_content(
+            prompt,
+            generation_config={"temperature": temperature, "response_mime_type": "application/json"},
+            request_options={"timeout": 30},
+        )
         text = result.text.strip()
         if not text:
             raise ValueError("Empty Gemini response")
@@ -83,6 +89,7 @@ def _safe_call(prompt: str, schema: type[BaseModel] | None = None, temperature: 
             return schema.model_validate(data)
         return data
     except Exception as exc:
+        logger.exception("Gemini request failed: %s", type(exc).__name__)
         raise RuntimeError(f"Gemini request failed: {exc}") from exc
 
 
@@ -165,7 +172,10 @@ def create_interview_plan(analysis: dict[str, Any], resume: dict[str, Any], job:
         f"JOB DESCRIPTION:\n{job.get('raw_text', '')[:12000]}\n\n"
         f"ANALYSIS:\n{json.dumps(analysis, default=str)[:12000]}"
     )
-    return _safe_call(prompt, InterviewPlan)
+    raw_plan = _safe_call(prompt)
+    if isinstance(raw_plan, list):
+        raw_plan = {"topics": raw_plan}
+    return InterviewPlan.model_validate(raw_plan)
 
 
 def generate_interview_question(topic: str, resume: dict[str, Any], job: dict[str, Any], analysis: dict[str, Any], *args, **kwargs):

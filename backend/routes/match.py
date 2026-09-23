@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,6 +11,7 @@ from backend.routes.auth import get_current_user
 from backend.services.embedding_service import calculate_similarity
 
 router = APIRouter(prefix="/match", tags=["match"])
+_semantic_disabled_until = 0.0
 
 
 class MatchRequest(BaseModel):
@@ -26,9 +28,13 @@ def _lexical_similarity(first: str, second: str) -> float:
 
 
 def _similarity(first: str, second: str) -> float:
+    global _semantic_disabled_until
+    if time.monotonic() < _semantic_disabled_until:
+        return _lexical_similarity(first, second)
     try:
         return calculate_similarity(first, second)
     except Exception:
+        _semantic_disabled_until = time.monotonic() + 60
         return _lexical_similarity(first, second)
 
 
@@ -66,7 +72,12 @@ async def match_resume(request: MatchRequest, current_user: dict = Depends(get_c
     for skill in required_skills:
         match_score = 0.0
         best_evidence = "No clear evidence found in the resume."
-        for resume_evidence in evidence_candidates:
+        ranked_evidence = sorted(
+            evidence_candidates,
+            key=lambda evidence: _lexical_similarity(str(skill), str(evidence)),
+            reverse=True,
+        )[:1]
+        for resume_evidence in ranked_evidence:
             similarity = _similarity(str(skill), str(resume_evidence))
             if similarity > match_score:
                 match_score = similarity
